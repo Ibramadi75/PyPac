@@ -48,7 +48,7 @@ def PlacementsGUM():  # placements des pacgums
 
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
-            if (TBL[x][y] == 0):
+            if TBL[x][y] == 0:
                 GUM[x][y] = 1
     return GUM
 
@@ -62,6 +62,53 @@ Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "pink"])
 Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "orange"])
 Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "cyan"])
 Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "red"])
+
+DIST = np.zeros(TBL.shape, dtype=np.int32) # carte des distances
+G = 999  # une valeur G très grande
+M = LARGEUR * HAUTEUR  # nombre de cases valeur plus grande que les distances mais inf à G
+axes_voisins = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+def init_carte_des_distances():
+    global  DIST, G, M
+
+    for x in range(LARGEUR):
+        for y in range(HAUTEUR):
+
+            if TBL[x][y] == 1:
+                DIST[x][y] = G
+            elif GUM[x][y] == 1:
+                    DIST[x][y] = 0
+            else: DIST[x][y] = M
+
+    return DIST
+
+DIST = init_carte_des_distances();
+def recalculer_carte_des_distances():
+    global DIST, axes_voisins, G, M
+
+    anyUpdate = True
+
+    while anyUpdate:
+        anyUpdate = False
+        for y in range(1, HAUTEUR - 1):
+            for x in range(1, LARGEUR-1):
+                if DIST[x][y] != G:
+                    voisins = []
+                    for dx, dy in axes_voisins:
+                        nx = x + dx
+                        ny = y + dy
+                        if 0 <= nx < LARGEUR and 0 <= ny < HAUTEUR:
+                            voisins.append((nx, ny))
+
+                    voisinsVal = []
+
+                    for nx, ny in voisins:
+                        voisinsVal.append(DIST[nx][ny])
+
+                    min_val = min(voisinsVal)
+
+                    if DIST[x][y] > min_val + 1:
+                        DIST[x][y] = min_val + 1
+                        anyUpdate = True
 
 ##############################################################################
 #
@@ -281,13 +328,24 @@ AfficherPage(0)
 
 
 def PacManPossibleMove():
-    L = []
-    x, y = PacManPos
-    if (TBL[x][y - 1] == 0): L.append((0, -1))
-    if (TBL[x][y + 1] == 0): L.append((0, 1))
-    if (TBL[x + 1][y] == 0): L.append((1, 0))
-    if (TBL[x - 1][y] == 0): L.append((-1, 0))
-    return L
+    global axes_voisins
+    voisins = []
+
+
+    for dx, dy in axes_voisins:
+        nx = PacManPos[0] + dx
+        ny = PacManPos[1] + dy
+
+        voisins.append((nx, ny))
+
+    voisinsVal = []
+    for nx, ny in voisins:
+        voisinsVal.append(DIST[nx][ny])
+
+    min_val = min(voisinsVal)
+    min_index = voisinsVal.index(min_val)
+
+    return voisins[min_index]
 
 
 def GhostsPossibleMove(x, y):
@@ -300,22 +358,21 @@ def GhostsPossibleMove(x, y):
 
 
 def IAPacman():
-    global PacManPos, Ghosts
+    global PacManPos, Ghosts, DIST
     # deplacement Pacman
-    L = PacManPossibleMove()
-    choix = random.randrange(len(L))
-    PacManPos[0] += L[choix][0]
-    PacManPos[1] += L[choix][1]
+    PacManPos = PacManPossibleMove()
 
-    # juste pour montrer comment on se sert de la fonction SetInfo1
+
+    # manger les pac gums
+    if GUM[PacManPos] == 1:
+        GUM[PacManPos] = 0
+        DIST = init_carte_des_distances()
+
+    recalculer_carte_des_distances()
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
-            info = x
-            if x % 3 == 1:
-                info = "+∞"
-            elif x % 3 == 2:
-                info = ""
-            SetInfo1(x, y, info)
+            SetInfo1(x, y, DIST[x][y])
+
 
 
 def IAGhosts():
