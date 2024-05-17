@@ -87,10 +87,10 @@ def recalculer_carte_des_distances():
 
     anyUpdate = True
 
-    while anyUpdate:
+    while anyUpdate: # tant que il y a une mise à jour
         anyUpdate = False
-        for y in range(1, HAUTEUR - 1):
-            for x in range(1, LARGEUR-1):
+        for y in range(1, HAUTEUR - 1): # on fait pes les bords qui sont des murs
+            for x in range(1, LARGEUR-1): # on fait pes les bords qui sont des murs
                 if DIST[x][y] != G:
                     voisins = []
                     for dx, dy in axes_voisins:
