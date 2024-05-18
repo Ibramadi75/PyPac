@@ -57,16 +57,16 @@ GUM = PlacementsGUM()
 
 PacManPos = [5, 5]
 
-Ghosts = []
-Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "pink"])
-Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "orange"])
-Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "cyan"])
-Ghosts.append([LARGEUR // 2, HAUTEUR // 2, "red"])
-
 DIST = np.zeros(TBL.shape, dtype=np.int32) # carte des distances
 G = 999  # une valeur G très grande
 M = LARGEUR * HAUTEUR  # nombre de cases valeur plus grande que les distances mais inf à G
-axes_voisins = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+axes = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+
+Ghosts = []
+for color in ["pink", "orange", "cyan", "red"]: # pour chaque couleur on créer un fantôme avec une direction initial différente
+    initial_direction = axes[random.randint(0, 3)]
+    Ghosts.append([LARGEUR // 2, HAUTEUR // 2, color, initial_direction])
+
 def init_carte_des_distances():
     global  DIST, G, M
 
@@ -83,7 +83,7 @@ def init_carte_des_distances():
 
 DIST = init_carte_des_distances();
 def recalculer_carte_des_distances():
-    global DIST, axes_voisins, G, M
+    global DIST, axes, G, M
 
     anyUpdate = True
 
@@ -93,7 +93,7 @@ def recalculer_carte_des_distances():
             for x in range(1, LARGEUR-1): # on fait pes les bords qui sont des murs
                 if DIST[x][y] != G:
                     voisins = []
-                    for dx, dy in axes_voisins:
+                    for dx, dy in axes:
                         nx = x + dx
                         ny = y + dy
                         if 0 <= nx < LARGEUR and 0 <= ny < HAUTEUR:
@@ -328,11 +328,11 @@ AfficherPage(0)
 
 
 def PacManPossibleMove():
-    global axes_voisins
+    global axes
     voisins = []
 
 
-    for dx, dy in axes_voisins:
+    for dx, dy in axes:
         nx = PacManPos[0] + dx
         ny = PacManPos[1] + dy
 
@@ -348,13 +348,34 @@ def PacManPossibleMove():
     return voisins[min_index]
 
 
-def GhostsPossibleMove(x, y):
-    L = []
-    if (TBL[x][y - 1] == 2): L.append((0, -1))
-    if (TBL[x][y + 1] == 2): L.append((0, 1))
-    if (TBL[x + 1][y] == 2): L.append((1, 0))
-    if (TBL[x - 1][y] == 2): L.append((-1, 0))
-    return L
+def GhostsPossibleMove(x, y, currentDirection):
+    global axes, TBL
+    available_directions = []
+
+    # Vérifier si la case dans la direction spécifiée par currentDirection est un couloir
+    nx = x + currentDirection[0]
+    ny = y + currentDirection[1]
+
+    if TBL[nx][ny] == 1:
+        available_directions.append((-currentDirection[0], -currentDirection[1]))
+
+    # on a une direction verticale
+    if currentDirection[0] == 0:
+        if TBL[x + 1][y] != 1:
+            available_directions.append((1, 0))
+        if TBL[x - 1][y] != 1:
+            available_directions.append((-1, 0))
+    # on a une direction horizontale
+    elif currentDirection[1] == 0:
+        if TBL[x][y + 1] != 1:
+            available_directions.append((0, 1))
+        if TBL[x][y - 1] != 1:
+            available_directions.append((0, -1))
+
+    if available_directions:
+        return random.choice(available_directions)
+    else:
+        return currentDirection
 
 
 def IAPacman():
@@ -377,11 +398,13 @@ def IAPacman():
 
 def IAGhosts():
     # deplacement Fantome
+    global axes
+
     for F in Ghosts:
-        L = GhostsPossibleMove(F[0], F[1])
-        choix = random.randrange(len(L))
-        F[0] += L[choix][0]
-        F[1] += L[choix][1]
+        move = GhostsPossibleMove(F[0], F[1], F[3])
+        F[0] += move[0]
+        F[1] += move[1]
+        F[3] = move
 
 
 #  Boucle principale de votre jeu appelée toutes les 500ms
