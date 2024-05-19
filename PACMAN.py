@@ -50,6 +50,12 @@ def PlacementsGUM():  # placements des pacgums
         for y in range(HAUTEUR):
             if TBL[x][y] == 0:
                 GUM[x][y] = 1
+
+    GUM[1][1] = 2
+    GUM[LARGEUR-2][1] = 2
+    GUM[LARGEUR-2][HAUTEUR-2] = 2
+    GUM[1][HAUTEUR-2] = 2
+
     return GUM
 
 
@@ -62,6 +68,8 @@ DIST = np.zeros(TBL.shape, dtype=np.int32) # carte des distances
 G = 999  # une valeur G très grande
 M = LARGEUR * HAUTEUR  # nombre de cases valeur plus grande que les distances mais inf à G
 axes = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+chase_mode = False
+chase_timer = 0
 
 Ghosts = []
 for color in ["pink", "orange", "cyan", "red"]: # pour chaque couleur on créer un fantôme avec une direction initial différente
@@ -93,7 +101,7 @@ def init_carte_des_fantomes():
 
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
-            if TBL[x][y] == 1:
+            if TBL[x][y] == 1 or TBL[x][y] == 2:
                 GHOST_DIST[x][y] = G
             elif GHOST[x][y] == 1:
                 GHOST_DIST[x][y] = 0
@@ -283,7 +291,7 @@ def Affiche(PacmanColor, message):
     global anim_bouche
 
     def CreateCircle(x, y, r, coul):
-        canvas.create_oval(x - r, y - r, x + r, y + r, fill=coul, width=0)
+            canvas.create_oval(x - r, y - r, x + r, y + r, fill=coul, width=0)
 
     canvas.delete("all")
 
@@ -308,11 +316,16 @@ def Affiche(PacmanColor, message):
     # pacgum
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
-            if (GUM[x][y] == 1):
+            if GUM[x][y] == 1:
                 xx = To(x)
                 yy = To(y)
                 e = 5
                 canvas.create_oval(xx - e, yy - e, xx + e, yy + e, fill="orange")
+            elif GUM[x][y] == 2:
+                xx = To(x)
+                yy = To(y)
+                e = 7
+                canvas.create_oval(xx - e, yy - e, xx + e, yy + e, fill="red")
 
     # extra info
     for x in range(LARGEUR):
@@ -322,7 +335,7 @@ def Affiche(PacmanColor, message):
             txt = TBL1[x][y]
             canvas.create_text(xx, yy, text=txt, fill="white", font=("Purisa", 8))
 
-            # extra info 2
+    # extra info 2
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
             xx = To(x) + 10
@@ -380,7 +393,7 @@ AfficherPage(0)
 
 
 def PacManPossibleMove():
-    global axes, G, GHOST_DIST, DIST
+    global axes, G, GHOST_DIST, DIST, chase_mode, chase_timer
     voisins = []
     voisinsVal = []
 
@@ -392,16 +405,22 @@ def PacManPossibleMove():
         if GHOST_DIST[nx][ny] < G:
             voisins.append((nx, ny)) # récupère les voisins
 
-        if GHOST_DIST[nx][ny] <= 3:
+        if GHOST_DIST[nx][ny] <= 3 and not chase_mode:
             FLAGUE_FUITE = True
-    if FLAGUE_FUITE:
+    if FLAGUE_FUITE or chase_mode:
         for nx, ny in voisins:
             voisinsVal.append(GHOST_DIST[nx][ny]) # distance à un fantôme
-        max_val = max(voisinsVal)
-        index = voisinsVal.index(max_val)
+
+        if chase_mode:
+            min_val = min(voisinsVal)
+            index = voisinsVal.index(min_val)
+        else:
+            max_val = max(voisinsVal)
+            index = voisinsVal.index(max_val)
     else:
         for nx, ny in voisins:
             voisinsVal.append(DIST[nx][ny]) # distance à un GUM
+
         min_val = min(voisinsVal)
         index = voisinsVal.index(min_val)
 
@@ -444,7 +463,7 @@ def GhostsPossibleMove(x, y, currentDirection):
 
 
 def IAPacman():
-    global PacManPos, Ghosts, DIST, score
+    global PacManPos, Ghosts, DIST, score, chase_mode, chase_timer
     # deplacement Pacman
     PacManPos = PacManPossibleMove()
 
@@ -453,7 +472,17 @@ def IAPacman():
         GUM[PacManPos] = 0
         score += 100
         DIST = init_carte_des_distances()
+    elif GUM[PacManPos] == 2:
+        GUM[PacManPos] = 0
+        chase_mode = True
+        chase_timer = 16
+        score += 200
+        DIST = init_carte_des_distances()
 
+    if chase_timer > 0:
+        chase_timer = chase_timer - 1
+    else:
+        chase_mode = False
     recalculer_carte_des_distances()
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
@@ -481,9 +510,10 @@ def IAGhosts():
 
 iteration = 0
 
+pacmanColor = "yellow"
 
 def PlayOneTurn():
-    global iteration, PAUSE_FLAG
+    global iteration, PAUSE_FLAG, score, pacmanColor
 
     if not PAUSE_FLAG:
         iteration += 1
@@ -494,9 +524,16 @@ def PlayOneTurn():
 
     for F in Ghosts:
         if F[0] == PacManPos[0] and F[1] == PacManPos[1]:
-            PAUSE_FLAG = True
-            
-    Affiche(PacmanColor="yellow", message=score)
+            if chase_mode:
+                F[0], F[1], F[3] = LARGEUR // 2, HAUTEUR // 2, (0, 1)
+                score += 2000
+            else:
+                PAUSE_FLAG = True
+    if chase_mode:
+        pacmanColor = "red"
+    else:
+        pacmanColor = "yellow"
+    Affiche(PacmanColor=pacmanColor, message=score)
 
 
 ###########################################:
