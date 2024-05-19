@@ -57,6 +57,7 @@ GUM = PlacementsGUM()
 
 PacManPos = [5, 5]
 
+score = 0
 DIST = np.zeros(TBL.shape, dtype=np.int32) # carte des distances
 G = 999  # une valeur G très grande
 M = LARGEUR * HAUTEUR  # nombre de cases valeur plus grande que les distances mais inf à G
@@ -64,11 +65,11 @@ axes = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
 Ghosts = []
 for color in ["pink", "orange", "cyan", "red"]: # pour chaque couleur on créer un fantôme avec une direction initial différente
-    initial_direction = axes[random.randint(0, 3)]
+    initial_direction = axes[1]
     Ghosts.append([LARGEUR // 2, HAUTEUR // 2, color, initial_direction])
 
 def init_carte_des_distances():
-    global  DIST, G, M
+    global DIST, G, M
 
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
@@ -81,7 +82,58 @@ def init_carte_des_distances():
 
     return DIST
 
-DIST = init_carte_des_distances();
+GHOST = np.zeros(TBL.shape, dtype=np.int32)
+GHOST_DIST = np.zeros(TBL.shape, dtype=np.int32)
+def init_carte_des_fantomes():
+    global GHOST_DIST
+
+    GHOST = np.zeros(TBL.shape, dtype=np.int32)
+    for F in Ghosts:
+        GHOST[F[0]][F[1]] = 1
+
+    for x in range(LARGEUR):
+        for y in range(HAUTEUR):
+            if TBL[x][y] == 1:
+                GHOST_DIST[x][y] = G
+            elif GHOST[x][y] == 1:
+                GHOST_DIST[x][y] = 0
+            else:
+                GHOST_DIST[x][y] = M
+
+    return GHOST_DIST
+init_carte_des_fantomes()
+def recalculer_carte_des_fantomes():
+    global GHOST_DIST, GHOST
+    
+    anyUpdate = True
+
+    while anyUpdate: # tant que il y a une mise à jour
+        anyUpdate = False
+        for y in range(1, HAUTEUR - 1): # on fait pes les bords qui sont des murs
+            for x in range(1, LARGEUR-1): # on fait pes les bords qui sont des murs
+                if GHOST_DIST[x][y] != G:
+                    voisins = []
+                    for dx, dy in axes:
+                        nx = x + dx
+                        ny = y + dy
+                        if 0 <= nx < LARGEUR and 0 <= ny < HAUTEUR:
+                            voisins.append((nx, ny))
+    
+                    voisinsVal = []
+    
+                    for nx, ny in voisins:
+                        voisinsVal.append(GHOST_DIST[nx][ny])
+    
+                    min_val = min(voisinsVal)
+    
+                    if GHOST_DIST[x][y] > min_val + 1:
+                        GHOST_DIST[x][y] = min_val + 1
+                        anyUpdate = True
+
+
+DIST = init_carte_des_distances()
+
+
 def recalculer_carte_des_distances():
     global DIST, axes, G, M
 
@@ -328,73 +380,84 @@ AfficherPage(0)
 
 
 def PacManPossibleMove():
-    global axes
+    global axes, G, GHOST_DIST, DIST
     voisins = []
+    voisinsVal = []
 
-
+    FLAGUE_FUITE = False
     for dx, dy in axes:
         nx = PacManPos[0] + dx
         ny = PacManPos[1] + dy
 
-        voisins.append((nx, ny))
+        if GHOST_DIST[nx][ny] < G:
+            voisins.append((nx, ny)) # récupère les voisins
 
-    voisinsVal = []
-    for nx, ny in voisins:
-        voisinsVal.append(DIST[nx][ny])
+        if GHOST_DIST[nx][ny] <= 3:
+            FLAGUE_FUITE = True
+    if FLAGUE_FUITE:
+        for nx, ny in voisins:
+            voisinsVal.append(GHOST_DIST[nx][ny]) # distance à un fantôme
+        max_val = max(voisinsVal)
+        index = voisinsVal.index(max_val)
+    else:
+        for nx, ny in voisins:
+            voisinsVal.append(DIST[nx][ny]) # distance à un GUM
+        min_val = min(voisinsVal)
+        index = voisinsVal.index(min_val)
 
-    min_val = min(voisinsVal)
-    min_index = voisinsVal.index(min_val)
-
-    return voisins[min_index]
+    if voisinsVal:
+        return voisins[index]
+    else:
+        return PacManPos
 
 
 def GhostsPossibleMove(x, y, currentDirection):
     global axes, TBL
     available_directions = []
 
-    # Vérifier si la case dans la direction spécifiée par currentDirection est un couloir
     nx = x + currentDirection[0]
     ny = y + currentDirection[1]
 
+    # si on a un mur dans la direction actuelle alors on peut revenir en arrière
     if TBL[nx][ny] == 1:
         available_directions.append((-currentDirection[0], -currentDirection[1]))
+    else:
+        available_directions.append(currentDirection)
 
-    # on a une direction verticale
+    # check croisement 
+    
+    # si on a une direction verticale
     if currentDirection[0] == 0:
-        if TBL[x + 1][y] != 1:
+        if TBL[x + 1][y] != 1 and TBL[x + 1][y] != 2: # est ce que je peux aller à droite ? et est ce que ce n'est pas la maison
             available_directions.append((1, 0))
-        if TBL[x - 1][y] != 1:
+        if TBL[x - 1][y] != 1 and TBL[x - 1][y] != 2: # à gauche ? et est ce que ce n'est pas la maison
             available_directions.append((-1, 0))
     # on a une direction horizontale
     elif currentDirection[1] == 0:
-        if TBL[x][y + 1] != 1:
+        if TBL[x][y + 1] != 1 and TBL[x][y + 1] != 2: # même principe 
             available_directions.append((0, 1))
-        if TBL[x][y - 1] != 1:
+        if TBL[x][y - 1] != 1 and TBL[x][y - 1] != 2:
             available_directions.append((0, -1))
 
-    if available_directions:
-        return random.choice(available_directions)
-    else:
-        return currentDirection
+    # si j'ai pas rien dans mes directions possibles 
+    return random.choice(available_directions)
 
 
 def IAPacman():
-    global PacManPos, Ghosts, DIST
+    global PacManPos, Ghosts, DIST, score
     # deplacement Pacman
     PacManPos = PacManPossibleMove()
-
 
     # manger les pac gums
     if GUM[PacManPos] == 1:
         GUM[PacManPos] = 0
+        score += 100
         DIST = init_carte_des_distances()
 
     recalculer_carte_des_distances()
     for x in range(LARGEUR):
         for y in range(HAUTEUR):
             SetInfo1(x, y, DIST[x][y])
-
-
 
 def IAGhosts():
     # deplacement Fantome
@@ -406,6 +469,13 @@ def IAGhosts():
         F[1] += move[1]
         F[3] = move
 
+    init_carte_des_fantomes()
+    recalculer_carte_des_fantomes()
+    for x in range(LARGEUR):
+        for y in range(HAUTEUR):
+            if GHOST_DIST[x][y] < G:
+                SetInfo2(x, y, GHOST_DIST[x][y])
+
 
 #  Boucle principale de votre jeu appelée toutes les 500ms
 
@@ -413,7 +483,7 @@ iteration = 0
 
 
 def PlayOneTurn():
-    global iteration
+    global iteration, PAUSE_FLAG
 
     if not PAUSE_FLAG:
         iteration += 1
@@ -422,7 +492,11 @@ def PlayOneTurn():
         else:
             IAGhosts()
 
-    Affiche(PacmanColor="yellow", message="message")
+    for F in Ghosts:
+        if F[0] == PacManPos[0] and F[1] == PacManPos[1]:
+            PAUSE_FLAG = True
+            
+    Affiche(PacmanColor="yellow", message=score)
 
 
 ###########################################:
