@@ -85,8 +85,9 @@ def init_carte_des_distances():
             if TBL[x][y] == 1:
                 DIST[x][y] = G
             elif GUM[x][y] == 1:
-                    DIST[x][y] = 0
-            else: DIST[x][y] = M
+                DIST[x][y] = 0
+            else:
+                DIST[x][y] = M
 
     return DIST
 
@@ -109,7 +110,8 @@ def init_carte_des_fantomes():
                 GHOST_DIST[x][y] = M
 
     return GHOST_DIST
-init_carte_des_fantomes()
+
+
 def recalculer_carte_des_fantomes():
     global GHOST_DIST, GHOST
     
@@ -138,7 +140,7 @@ def recalculer_carte_des_fantomes():
                         GHOST_DIST[x][y] = min_val + 1
                         anyUpdate = True
 
-
+GHOST_DIST = init_carte_des_fantomes()
 DIST = init_carte_des_distances()
 
 
@@ -468,15 +470,14 @@ def IAPacman():
     PacManPos = PacManPossibleMove()
 
     # manger les pac gums
-    if GUM[PacManPos] == 1:
+    eatenGum = 0
+    if GUM[PacManPos] in [1, 2]:
+        eatenGum = GUM[PacManPos]
+        score += 100 if eatenGum == 1 else 200
         GUM[PacManPos] = 0
-        score += 100
-        DIST = init_carte_des_distances()
-    elif GUM[PacManPos] == 2:
-        GUM[PacManPos] = 0
-        chase_mode = True
-        chase_timer = 16
-        score += 200
+        if eatenGum == 2:
+            chase_mode = True
+            chase_timer = 16
         DIST = init_carte_des_distances()
 
     if chase_timer > 0:
